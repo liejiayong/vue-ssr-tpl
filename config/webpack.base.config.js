@@ -1,11 +1,15 @@
 const path = require('path');
 const VueLoaderPlugin = require('vue-loader/lib/plugin');
+const Dotenv = require('dotenv-webpack');
 
 module.exports = {
   mode: 'development',
 
   resolve: {
     extensions: ['.js', '.vue'],
+    alias: {
+      '@': path.resolve(__dirname, '../src'),
+    },
   },
 
   output: {
@@ -39,5 +43,5 @@ module.exports = {
     ],
   },
 
-  plugins: [new VueLoaderPlugin()],
+  plugins: [new Dotenv(), new VueLoaderPlugin()],
 };
