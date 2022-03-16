@@ -1,32 +1,40 @@
 import { createApp } from './app.js';
 
 export default (context) => {
+  // 因为有可能会是异步路由钩子函数或组件，所以我们将返回一个 Promise，
+  // 以便服务器能够等待所有的内容在渲染前，
+  // 就已经准备就绪。
   return new Promise((resolve, reject) => {
-    const { app, store, App } = createApp();
+    const { app, store, router } = createApp();
 
-    const components = App.components,
-      asyncDataPromiseFns = [];
+    // 设置服务器端 router 的位置
+    router.push(context.url);
 
-    Object.values(components).forEach((component) => {
-      if (component.asyncData) {
-        asyncDataPromiseFns.push(component.asyncData({ store }));
+    // 等到 router 将可能的异步组件和钩子函数解析完
+    router.onReady(() => {
+      const matchedComponents = router.getMatchedComponents();
+
+      console.log('context.url', context.url);
+      console.log('matchedComponents', JSON.stringify(matchedComponents));
+
+      // 匹配不到的路由，执行 reject 函数，并返回 404
+      if (!matchedComponents.length) {
+        return reject({ code: 404 });
       }
-    });
 
-    // 我们通过导出的App拿到了所有它下面的components，
-    // 然后遍历，找出哪些component有asyncData方法，有的话调用并传入store，该方法会返回一个Promise，
-    // 我们使用Promise.all等所有的异步方法都成功返回，才resolve(app)。
-    Promise.all(asyncDataPromiseFns).then((result) => {
-      // 当使用createBundleRenderer时，
-      // 如果设置了template选项，context.state 将作为 window.__INITIAL_STATE__ 状态，自动嵌入到最终的 HTML 中
-      context.state = store.state;
+      Promise.all(
+        matchedComponents.map((component) => {
+          if (component.asyncData) {
+            return component.asyncData({ store });
+          }
+        })
+      ).then(() => {
+        // 当使用 template 时，context.state 将作为 window.__INITIAL_STATE__ 状态，自动嵌入到最终的 HTML 中
+        context.state = store.state;
 
-      // console.log('entry-server.js');
-      // console.log('store state', store.state);
-      // console.log('context.state', context.state);
-      // console.log('context', context);
-
-      resolve(app);
+        // Promise 应该 resolve 应用程序实例，以便它可以渲染
+        resolve(app);
+      });
     }, reject);
   });
 };

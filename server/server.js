@@ -17,23 +17,27 @@ const renderer = require('vue-server-renderer').createBundleRenderer(bundle, {
 });
 
 // 后端Server
-backendRouter.get('/index', async (ctx, next) => {
-  try {
-    let html = await new Promise((resolve, reject) => {
-      // 这里直接使用 renderToString 的 Promise 模式，返回的 html 字符串没有样式和 __INITIAL_STATE__，原因暂时还没有查到
-      // 所以，只能暂时先自己封装一个 Promise，用 renderToString 的 callback 模式
-      renderer.renderToString((err, html) => {
-        if (err) {
-          reject(err);
-        } else {
-          resolve(html);
-        }
-      });
+function renderToString(context) {
+  return new Promise((resolve, reject) => {
+    // 这里直接使用 renderToString 的 Promise 模式，返回的 html 字符串没有样式和 __INITIAL_STATE__，原因暂时还没有查到
+    // 所以，只能暂时先自己封装一个 Promise，用 renderToString 的 callback 模式
+    renderer.renderToString(context, (err, html) => {
+      err ? reject(err) : resolve(html);
     });
-
-    ctx.type = 'html';
-    ctx.status = 200;
-    ctx.body = html;
+  });
+}
+backendRouter.get('*', async (ctx, next) => {
+  try {
+    const context = {
+      title: 'Home',
+      meta: `
+        <meta name="JyLie">
+      `,
+      url: ctx.url,
+    };
+    ctx.res.setHeader('Content-Type', 'text/html');
+    const tpl = await renderToString(context);
+    ctx.body = tpl;
   } catch (err) {
     console.error(err);
     ctx.status = 500;
